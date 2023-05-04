@@ -31,7 +31,7 @@ class Platform:
         self.width = 150
         self.height = 10
         self.x = field.midX() - self.halfWidth()
-        self.y = field.height - 200
+        self.y = field.height - 100
         self.v = .5
 
     def halfWidth(self):
@@ -58,13 +58,23 @@ class Ball:
         return (self.vx * tick, self.vy * tick)
    
     def moveAxis(self, axis, l, edge, direction):
-        l1 = direction * (edge - self.pos[axis])
+        l1 = edge - self.radius - direction * self.pos[axis]
+        print(f'axis={"Y" if axis else "X"}')
+        print(f'l={l}')
+        print(f'l1={l1}')
         if l > l1:# - self.radius:
+            print(f'!!!!!!!!!!!!!!!! Hit !!!!!!!!!!!!!!!')
             l2 = l - l1
-            self.pos[axis] = direction * (edge - l2)
+            print(f'l2={l2}')
+            print(f'old={self.pos[axis]}')
+            self.pos[axis] = direction * (edge - self.radius - l2)
+            print(f'new={self.pos[axis]}')
             self.v[axis] = -self.v[axis]
         else:
+            print(f'Direct!')
+            print(f'old={self.pos[axis]}')
             self.pos[axis] += direction * l
+            print(f'new={self.pos[axis]}')
 
     def move(self, tick):
         # X coordinate collisions
@@ -98,7 +108,7 @@ pygame.display.set_caption("Ping-Pong Game")
 running = True
 
 while running:
-    tickMs = clock.tick(15)
+    tickMs = clock.tick(60)
 
     keys = pygame.key.get_pressed()
 
