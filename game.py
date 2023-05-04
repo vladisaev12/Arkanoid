@@ -1,3 +1,5 @@
+import pygame_menu as pymenu
+import threading
 import pygame
 import time
 import datetime
@@ -10,6 +12,9 @@ RED = (255, 0, 0)
 
 AXIS_X = 0
 AXIS_Y = 1
+
+fps = 60
+
 
 
 class Field:
@@ -57,13 +62,16 @@ class Ball:
     def vec(self, tick):
         return (self.vx * tick, self.vy * tick)
    
-    def moveAxis(self, axis, l, edge, direction):
+    def moveAxis(self, axis, l, edge, direction, fatal=False):
         l1 = edge - self.radius - direction * self.pos[axis]
         print(f'axis={"Y" if axis else "X"}')
         print(f'l={l}')
         print(f'l1={l1}')
-        if l > l1:# - self.radius:
+        if l > l1:
             print(f'!!!!!!!!!!!!!!!! Hit !!!!!!!!!!!!!!!')
+            if fatal:
+                return False
+
             l2 = l - l1
             print(f'l2={l2}')
             print(f'old={self.pos[axis]}')
@@ -76,24 +84,30 @@ class Ball:
             self.pos[axis] += direction * l
             print(f'new={self.pos[axis]}')
 
+        return True
+
     def move(self, tick):
+        result = True
+
         # X coordinate collisions
         lx = abs(self.v[AXIS_X]) * tick
         if self.v[AXIS_X] < 0:
-            self.moveAxis(AXIS_X, lx, 0, -1)
+            result &= self.moveAxis(AXIS_X, lx, 0, -1)
         elif self.v[AXIS_X] > 0:
-            self.moveAxis(AXIS_X, lx, field.width, 1)
+            result &= self.moveAxis(AXIS_X, lx, field.width, 1)
 
         # Y coordinate collisions
         ly = abs(self.v[AXIS_Y]) * tick
         if self.v[AXIS_Y] < 0:
-            self.moveAxis(AXIS_Y, ly, 0, -1)
+            result &= self.moveAxis(AXIS_Y, ly, 0, -1)
         elif self.v[AXIS_Y] > 0:
             if self.pos[AXIS_X] > platform.x and self.pos[AXIS_X] < platform.x + platform.width:
                 print("Platform!!!")
-                self.moveAxis(AXIS_Y, ly, platform.y, 1)
+                result &= self.moveAxis(AXIS_Y, ly, platform.y, 1)
             else:
-                self.moveAxis(AXIS_Y, ly, field.height, 1)
+                result &= self.moveAxis(AXIS_Y, ly, field.height, 1, True)
+
+        return result
 
 
 field = Field()
@@ -107,26 +121,48 @@ pygame.display.set_caption("Ping-Pong Game")
 
 running = True
 
+started = False
+
+def set_fps(value, fps):
+    clock.tick(fps)
+
+def start_the_game():
+    started = True
+    menu.disable()
+
+menu = pymenu.Menu('Arkanoid', field.width, field.height, theme=pymenu.themes.THEME_BLUE)
+
+menu.add.selector('fps :', [('30', 1), ('60', 2)], onchange=set_fps)
+menu.add.button('Play', start_the_game)
+
 while running:
-    tickMs = clock.tick(60)
+    tickMs = clock.tick(5)
 
     keys = pygame.key.get_pressed()
-
-    for event in pygame.event.get():
+    events = pygame.event.get()
+    for event in events:
         if event.type == pygame.QUIT or keys[pygame.K_ESCAPE]:
             running = False
-
-    print(f"{datetime.datetime.now()}")
-
-    if keys[pygame.K_a]:
-        platform.moveLeft(tickMs)
-    if keys[pygame.K_d]:
-        platform.moveRight(tickMs)
-    
-    ball.move(tickMs)
-    
-    screen.fill(BLACK)
-    pygame.draw.rect(screen, platform.color, ((platform.x, platform.y), (platform.width, platform.height)))
-    pygame.draw.circle(screen, ball.color, ball.pos, ball.radius)
-    pygame.display.flip()
+    if menu.is_enabled():
+        field = Field()
+        platform = Platform(field)
+        ball = Ball(platform)
+        menu.update(events)
+        menu.mainloop(screen)
+    if menu.is_enabled() == False:
+        print(f"{datetime.datetime.now()}")
+        
+        if keys[pygame.K_a]:
+            platform.moveLeft(tickMs)
+        if keys[pygame.K_d]:
+            platform.moveRight(tickMs)
+        
+        if ball.move(tickMs):
+            screen.fill(BLACK)
+            pygame.draw.rect(screen, platform.color, ((platform.x, platform.y), (platform.width, platform.height)))
+            ballrect = pygame.draw.circle(screen, ball.color, ball.pos, ball.radius)
+            pygame.display.flip()
+        else:
+            menu.full_reset()
+            menu.enable()
 
