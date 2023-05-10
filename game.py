@@ -13,10 +13,10 @@ AXIS_Y = 1
 
 
 class Field:
-    def __init__(self):
+    def __init__(self, width, height):
         self.background = BLACK
-        self.width = 1000
-        self.height = 700
+        self.width = width
+        self.height = height
     
     def rect(self):
         return (self.width, self.height)
@@ -27,12 +27,22 @@ class Field:
 
 class Platform:
     def __init__(self, field):
-        self.color = BLUE
+        self.fillColor = BLUE
+        self.borderColor = RED
+        self.borderWidth = 1
         self.width = 150
         self.height = 10
         self.x = field.midX() - self.halfWidth()
         self.y = field.height - 100
         self.v = .5
+
+    def draw(self):
+        pygame.draw.rect(screen, self.borderColor,
+                         ((self.x, self.y),
+                          (self.width, self.height)))
+        pygame.draw.rect(screen, self.fillColor,
+                         ((self.x + self.borderWidth, self.y + self.borderWidth),
+                          (self.width - self.borderWidth * 2, self.height - self.borderWidth * 2)))
 
     def halfWidth(self):
         return self.width / 2
@@ -40,11 +50,21 @@ class Platform:
     def midX(self):
         return self.x + self.halfWidth()
     
-    def moveRight(self, tick):
-        self.x += self.v * tick
-    
+    def moveDirection(self, tick, edge, platformOffset, direction):
+        l1 = self.v * tick
+        platformEdge = self.x + platformOffset
+        l2 = edge - direction * platformEdge
+        print(f'px={self.x}')
+        if l1 > l2:
+            self.x = edge - direction * platformOffset
+        else:
+            self.x += direction * l1
+
     def moveLeft(self, tick):
-        self.x -= self.v * tick
+        self.moveDirection(tick, 0, 0, -1)
+
+    def moveRight(self, tick):
+        self.moveDirection(tick, field.width, self.width, 1)
 
 
 class Ball:
@@ -59,22 +79,12 @@ class Ball:
    
     def moveAxis(self, axis, l, edge, direction):
         l1 = edge - self.radius - direction * self.pos[axis]
-        print(f'axis={"Y" if axis else "X"}')
-        print(f'l={l}')
-        print(f'l1={l1}')
-        if l > l1:# - self.radius:
-            print(f'!!!!!!!!!!!!!!!! Hit !!!!!!!!!!!!!!!')
+        if l > l1:
             l2 = l - l1
-            print(f'l2={l2}')
-            print(f'old={self.pos[axis]}')
             self.pos[axis] = direction * (edge - self.radius - l2)
-            print(f'new={self.pos[axis]}')
             self.v[axis] = -self.v[axis]
         else:
-            print(f'Direct!')
-            print(f'old={self.pos[axis]}')
             self.pos[axis] += direction * l
-            print(f'new={self.pos[axis]}')
 
     def move(self, tick):
         # X coordinate collisions
@@ -89,24 +99,23 @@ class Ball:
         if self.v[AXIS_Y] < 0:
             self.moveAxis(AXIS_Y, ly, 0, -1)
         elif self.v[AXIS_Y] > 0:
-            if self.pos[AXIS_X] > platform.x and self.pos[AXIS_X] < platform.x + platform.width:
-                print("Platform!!!")
+            if self.pos[AXIS_X] > platform.x and self.pos[AXIS_X] < platform.x + platform.width and self.pos[AXIS_Y] + self.radius < platform.y:
                 self.moveAxis(AXIS_Y, ly, platform.y, 1)
             else:
                 self.moveAxis(AXIS_Y, ly, field.height, 1)
 
 
-field = Field()
+pygame.init()
+(w, h) = pygame.display.get_desktop_sizes()[0]
+field = Field(w / 2, h / 2)
+screen = pygame.display.set_mode(field.rect(), flags=pygame.RESIZABLE|pygame.SCALED, vsync=1)
+pygame.display.set_caption("Ping-Pong Game")
+
 platform = Platform(field)
 ball = Ball(platform)
 
-pygame.init()
 clock = pygame.time.Clock()
-screen = pygame.display.set_mode(field.rect())
-pygame.display.set_caption("Ping-Pong Game")
-
 running = True
-
 while running:
     tickMs = clock.tick(60)
 
@@ -122,11 +131,12 @@ while running:
         platform.moveLeft(tickMs)
     if keys[pygame.K_d]:
         platform.moveRight(tickMs)
+    if keys[pygame.K_f]:
+        pygame.display.toggle_fullscreen()
     
     ball.move(tickMs)
     
     screen.fill(BLACK)
-    pygame.draw.rect(screen, platform.color, ((platform.x, platform.y), (platform.width, platform.height)))
+    platform.draw()
     pygame.draw.circle(screen, ball.color, ball.pos, ball.radius)
     pygame.display.flip()
-
