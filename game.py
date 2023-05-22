@@ -1,6 +1,8 @@
+import datetime
+import random
 import pygame
 import time
-import datetime
+
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -72,8 +74,16 @@ class Ball:
         self.color = GREEN
         self.radius = 2.5 * 10
         self.pos = [platform.midX(), platform.y - self.radius]
-        self.v = [-.25, -.25]
+        self.v = [0, 0]
+        self.thrown = False
     
+    def throw(self):
+        if self.thrown:
+            return
+
+        self.v = [-.25 if random.getrandbits(1) else .25, -.25]
+        self.thrown = True
+
     def vec(self, tick):
         return (self.vx * tick, self.vy * tick)
    
@@ -87,6 +97,9 @@ class Ball:
             self.pos[axis] += direction * l
 
     def move(self, tick):
+        if not self.thrown:
+            self.pos[AXIS_X] = platform.midX()
+
         # X coordinate collisions
         lx = abs(self.v[AXIS_X]) * tick
         if self.v[AXIS_X] < 0:
@@ -127,6 +140,8 @@ while running:
 
     print(f"{datetime.datetime.now()}")
 
+    if keys[pygame.K_SPACE]:
+        ball.throw()
     if keys[pygame.K_a]:
         platform.moveLeft(tickMs)
     if keys[pygame.K_d]:
